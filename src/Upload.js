@@ -219,8 +219,10 @@ async function safePut(url, chunk, opts={}) {
                 xhr.setRequestHeader(k, opts.headers[k]);
             }
             xhr.onload = e => {
-              console.log(e)
-              res(e.target);
+                const result = e.target
+                result.headers = {}
+                result.headers['range'] = xhr.getResponseHeader('range')
+                res(result);
             }
             xhr.onerror = rej;
             if (xhr.upload && opts.onUploadProgress) {
