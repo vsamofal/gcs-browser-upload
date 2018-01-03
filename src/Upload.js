@@ -1,4 +1,3 @@
-import { put } from 'axios'
 import FileMeta from './FileMeta'
 import FileProcessor from './FileProcessor'
 import debug from './debug'
@@ -26,6 +25,7 @@ export default class Upload {
       storage: window.localStorage,
       contentType: 'text/plain',
       onChunkUpload: () => {},
+      onUploadProgress: () => {},
       id: null,
       url: null,
       file: null,
@@ -53,6 +53,14 @@ export default class Upload {
 
   async start () {
     const { meta, processor, opts, finished } = this
+    const _onUploadProgress = (c, total, totalChunksCount, index) => {
+      return (event) => {
+          const currentChunkProgress = Math.round(event.loaded / total * 100 / (index + 1));
+          const totalFileProgress = Math.round(index / totalChunksCount * 100);
+          const progress = currentChunkProgress + totalFileProgress;
+          c(progress > 100 ? 100 : progress)
+      }
+    }
 
     const resumeUpload = async () => {
       const localResumeIndex = meta.getResumeIndex()
@@ -83,6 +91,7 @@ export default class Upload {
       const total = opts.file.size
       const start = index * opts.chunkSize
       const end = index * opts.chunkSize + chunk.byteLength - 1
+      const totalChunksCount = Math.ceil(total / opts.chunkSize)
 
       const headers = {
         'Content-Type': opts.contentType
@@ -96,7 +105,8 @@ export default class Upload {
       debug(` - Start: ${start}`)
       debug(` - End: ${end}`)
 
-      const res = await safePut(opts.url, chunk, { headers })
+      const onUploadProgress = _onUploadProgress(opts.onUploadProgress, total, totalChunksCount, index);
+      const res = await safePut(opts.url, chunk, { headers, onUploadProgress })
       checkResponseStatus(res, opts, [200, 201, 308])
       debug(`Chunk upload succeeded, adding checksum ${checksum}`)
       meta.addChecksum(index, checksum)
@@ -194,14 +204,27 @@ function checkResponseStatus (res, opts, allowed = []) {
   }
 }
 
-async function safePut () {
-  try {
-    return await put.apply(null, arguments)
-  } catch (e) {
-    if (e instanceof Error) {
-      throw e
-    } else {
-      return e
-    }
-  }
+async function safePut(url, chunk, opts={}) {
+    return new Promise((res, rej) => {
+        try {
+            const xhr = new XMLHttpRequest();
+            xhr.open('put', url);
+            for (let k in opts.headers||{}) {
+                xhr.setRequestHeader(k, opts.headers[k]);
+            }
+            xhr.onload = e => res(e.target);
+            xhr.onerror = rej;
+            if (xhr.upload && opts.onUploadProgress) {
+                xhr.upload.onprogress = opts.onUploadProgress;
+            }
+
+            xhr.send(chunk);
+        } catch (e) {
+            if (e instanceof Error) {
+                throw e
+            } else {
+                return e
+            }
+        }
+    });
 }

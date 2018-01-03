@@ -38,8 +38,10 @@ class FileProcessor {
       console.time('checksum-calc')
       const checksum = getChecksum(spark, chunk)
       console.timeEnd('checksum-calc')
-
+      console.time('upload-chunk')
       const shouldContinue = await fn(checksum, index, chunk, singleChunk)
+      console.timeEnd('upload-chunk')
+
       if (shouldContinue !== false) {
         await processIndex(index + 1)
       }
