@@ -136,6 +136,13 @@ export default class Upload {
       const res = await safePut(opts.url, null, { headers })
 
       checkResponseStatus(res, opts, [308])
+      //  according to documentation:
+      //   If you received a 308 Resume Incomplete response, process the response's Range header, which specifies which
+      //   bytes the server has received so far. The response will not have a Range header if no bytes have been received yet.
+      //   https://cloud.google.com/storage/docs/json_api/v1/how-tos/resumable-upload
+      if(!res.headers) {
+        return 0;
+      }
       const header = res.headers['range']
       debug(`Received upload status from GCS: ${header}`)
       const range = header.match(/(\d+?)-(\d+?)$/)
@@ -212,7 +219,10 @@ async function safePut(url, chunk, opts={}) {
             for (let k in opts.headers||{}) {
                 xhr.setRequestHeader(k, opts.headers[k]);
             }
-            xhr.onload = e => res(e.target);
+            xhr.onload = e => {
+              console.log(e)
+              res(e.target);
+            }
             xhr.onerror = rej;
             if (xhr.upload && opts.onUploadProgress) {
                 xhr.upload.onprogress = opts.onUploadProgress;
