@@ -13,6 +13,7 @@ class FileProcessor {
   async run (fn, startIndex = 0, endIndex) {
     const { file, chunkSize } = this
     const totalChunks = Math.ceil(file.size / chunkSize)
+    const singleChunk = totalChunks === 1
     let spark = new SparkMD5.ArrayBuffer()
 
     debug('Starting run on file:')
@@ -31,10 +32,14 @@ class FileProcessor {
 
       const start = index * chunkSize
       const section = file.slice(start, start + chunkSize)
+      console.time('retrieve-chunk')
       const chunk = await getData(file, section)
+      console.timeEnd('retrieve-chunk')
+      console.time('checksum-calc')
       const checksum = getChecksum(spark, chunk)
+      console.timeEnd('checksum-calc')
 
-      const shouldContinue = await fn(checksum, index, chunk)
+      const shouldContinue = await fn(checksum, index, chunk, singleChunk)
       if (shouldContinue !== false) {
         await processIndex(index + 1)
       }
@@ -59,6 +64,14 @@ class FileProcessor {
     this.unpauseHandlers = []
   }
 }
+
+// function calcChecksum() {
+//     return SparkMD5.hash(arguments.reduce((acc, val) => {
+//         (!acc || (acc = ''));
+//         acc += val.toString();
+//         return acc;
+//     }, ''));
+// }
 
 function getChecksum (spark, chunk) {
   spark.append(chunk)

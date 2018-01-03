@@ -79,14 +79,16 @@ export default class Upload {
       await processor.run(uploadChunk, resumeIndex)
     }
 
-    const uploadChunk = async (checksum, index, chunk) => {
+    const uploadChunk = async (checksum, index, chunk, singleChunk) => {
       const total = opts.file.size
       const start = index * opts.chunkSize
       const end = index * opts.chunkSize + chunk.byteLength - 1
 
       const headers = {
-        'Content-Type': opts.contentType,
-        'Content-Range': `bytes ${start}-${end}/${total}`
+        'Content-Type': opts.contentType
+      }
+      if (!singleChunk) {
+        headers['Content-Range'] = `bytes ${start}-${end}/${total}`
       }
 
       debug(`Uploading chunk ${index}:`)

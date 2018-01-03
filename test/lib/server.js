@@ -13,10 +13,12 @@ router.use(bodyParser.text())
 
 router.use((req, res, next) => {
   const range = req.headers['content-range']
+  const length = req.headers['content-length']
+
   const matchKnown = range.match(/^bytes (\d+?)-(\d+?)\/(\d+?)$/)
   const matchUnknown = range.match(/^bytes \*\/(\d+?)$/)
 
-  if (matchUnknown) {
+  if (matchUnknown && !length) {
     req.range = {
       known: false,
       total: matchUnknown[1]
@@ -28,6 +30,14 @@ router.use((req, res, next) => {
       start: matchKnown[1],
       end: matchKnown[2],
       total: matchKnown[3]
+    }
+    next()
+  } else if (length) {
+    req.range = {
+      known: false,
+      start: 0,
+      end: length - 1,
+      total: length
     }
     next()
   } else {
