@@ -75,7 +75,8 @@ class FileProcessor {
 // }
 
 function getChecksum (spark, chunk) {
-  spark.append(chunk)
+  const endsBuffer = mergeArrayBuffers(chunk.slice(0, 20), chunk.slice(chunk.byteLength - 20, chunk.byteLength))
+  spark.append(endsBuffer)
   const checksum = spark.end()
   return checksum
 }
@@ -87,6 +88,14 @@ async function getData (file, blob) {
     reader.onerror = reject
     reader.readAsArrayBuffer(blob)
   })
+}
+
+
+export function mergeArrayBuffers (a, b) {
+    const tmp = new Uint8Array(a.byteLength + b.byteLength)
+    tmp.set(new Uint8Array(a), 0)
+    tmp.set(new Uint8Array(b), a.byteLength)
+    return tmp.buffer
 }
 
 export default FileProcessor
